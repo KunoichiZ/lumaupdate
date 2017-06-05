@@ -42,7 +42,7 @@ LumaVersion versionSvc() {
 	int minor = version >> 16;
 	std::string smajor = std::to_string(major);
 	std::string sminor = std::to_string(minor);
-	ver.release = "Luma3DS v" + smajor + "." + sminor;
+	ver.release = "v" + smajor + "." + sminor;
 	svcGetSystemInfo(&version, 0x10000, 1);
 	ver.commit = to_hex(version);
 	ver.isDev = false;

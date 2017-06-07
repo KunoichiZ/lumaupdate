@@ -2,6 +2,7 @@
 
 #include "utils.h"
 #include <iostream>
+#include <iomanip>
 #include <string>
 
 std::string getCommit(std::string commitString) {
@@ -24,51 +25,29 @@ const std::string LumaVersion::toString(bool printBranch) const {
 	return currentVersionStr;
 }
 
-/* Luma3DS 0x2e svc version struct */
-struct PACKED SvcLumaVersion {
-	char magic[4];
-	uint8_t major;
-	uint8_t minor;
-	uint8_t build;
-	uint8_t flags;
-	uint32_t commit;
-	uint32_t unused;
-};
-
-
-int NAKED svcGetLumaVersion(SvcLumaVersion UNUSED *info) {
-	asm volatile(
-		"svc 0x2E\n"
-		"bx lr"
-	);
+template< typename T > std::string to_hex( T i )
+{
+  std::stringstream stream;
+  stream << std::hex << i;
+  return stream.str();
 }
 
-
 LumaVersion versionSvc() {
-	SvcLumaVersion info;
-	if (svcGetLumaVersion(&info) != 0) {
+	LumaVersion ver;
+	s64 version;
+	svcGetSystemInfo(&version, 0x10000, 0);
+	if(!version)
 		return LumaVersion{};
-	}
-
-	LumaVersion version;
-
-	std::stringstream releaseBuilder;
-	releaseBuilder << (int)info.major << "." << (int)info.minor;
-	if (info.build > 0) {
-		releaseBuilder << "." << (int)info.build;
-	}
-	version.release = releaseBuilder.str();
-
-	if (info.commit > 0) {
-		std::stringstream commitBuilder;
-		commitBuilder << std::hex << info.commit;
-		version.commit = commitBuilder.str();
-	}
-
-	version.isDev = (info.flags & 0x1) == 0x1;
-
-	logPrintf("%s\n", version.toString().c_str());
-	return version;
+	int major = version >> 24;
+	int minor = version >> 16;
+	std::string smajor = std::to_string(major);
+	std::string sminor = std::to_string(minor);
+	ver.release = "v" + smajor + "." + sminor;
+	svcGetSystemInfo(&version, 0x10000, 1);
+	ver.commit = to_hex(version);
+	ver.isDev = false;
+	logPrintf("%s\n", ver.toString().c_str());
+	return ver;
 }
 
 LumaVersion versionMemsearch(const std::string& path) {

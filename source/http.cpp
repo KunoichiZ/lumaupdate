@@ -21,7 +21,7 @@ void httpGet(const char* url, u8** buf, u32* size, const bool verbose, HTTPRespo
 		// Handle 3xx codes
 		if (statuscode >= 300 && statuscode < 400) {
 			char newUrl[1024];
-			CHECK(httpc.GetResponseHeader(&context, (char*)"location", newUrl, 1024), "Could not get Location header for 3xx reply");
+			CHECK(httpc.GetResponseHeader(&context, (char*)"Location", newUrl, 1024), "Could not get Location header for 3xx reply");
 			CHECK(httpc.CloseContext(&context), "Could not close HTTP context");
 			httpGet(newUrl, buf, size, verbose, info);
 			return;

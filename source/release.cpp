@@ -52,7 +52,7 @@ ReleaseInfo releaseGetLatestStable() {
 	gfxFlushBuffers();
 
 	bool namefound = false, bodyfound = false, inassets = false;
-	bool verHasName = false, verHasURL = false, verHasSize = false, isDev = false;
+	bool verHasName = false, verHasURL = false, verHasSize = false;
 	ReleaseVer current;
 	for (int i = 0; i < r; i++) {
 		if (!namefound && jsoneq((const char*)apiReqData, &t[i], "tag_name") == 0) {
@@ -78,8 +78,7 @@ ReleaseInfo releaseGetLatestStable() {
 			if (jsoneq((const char*)apiReqData, &t[i], "name") == 0) {
 				jsmntok_t val = t[i+1];
 				current.filename = std::string((const char*)apiReqData + val.start, val.end - val.start);
-				isDev = current.filename.find("-dev.") < std::string::npos;
-				current.friendlyName = isDev ? "developer version" : "stable version";
+				current.friendlyName = "stable version";
 				verHasName = true;
 			}
 			if (jsoneq((const char*)apiReqData, &t[i], "browser_download_url") == 0) {
@@ -96,13 +95,8 @@ ReleaseInfo releaseGetLatestStable() {
 			if (verHasName && verHasURL && verHasSize) {
 				logPrintf("Found version: %s\n", current.filename.c_str());
 				ReleaseVer version = ReleaseVer{ current.filename, current.friendlyName, current.url, current.fileSize };
-				// Put normal version in front, dev on back
-				if (!isDev) {
-					release.versions.insert(release.versions.begin(), version);
-				} else {
-					release.versions.push_back(version);
-				}
-				verHasName = verHasURL = verHasSize = isDev = false;
+				release.versions.insert(release.versions.begin(), version);
+				verHasName = verHasURL = verHasSize = false;
 			}
 		}
 	}
@@ -126,62 +120,58 @@ ReleaseInfo releaseGetLatestHourly() {
 #else
 
 	static const char* LastCommitURL = 
-	"http://astronautlevel2.github.io/Luma3DS/lastCommit";
+	"https://api.github.com/repos/hax0kartik/Luma-hourlies/releases/latest";
 	
-	/*static const char* LastDevCommitURL = "https://raw.githubusercontent.com/astronautlevel2/Luma3DSDev/gh-pages/lastCommit";*/
+	static const char* version = LastCommitURL;
+	static const char* vertype = "hourly";
+	std::string verurl;
+	jsmn_parser p = {};
+	jsmn_init(&p);
 
-	/*static const char* versions[] = { LastCommitURL, LastDevCommitURL };
-	static const char* vertypes[] = { "hourly", "dev hourly" };
-	static const std::string verurls[] = {
-		"http://astronautlevel2.github.io/Luma3DS/latest.zip",
-		"http://astronautlevel2.github.io/Luma3DS/builds/Luma3DS-",
-		"https://astronautlevel2.github.io/Luma3DSDev/builds/Luma3DS-"
-	};*/
-	
-	static const char* versions[] = { LastCommitURL};
-	static const char* vertypes[] = { "hourly" };
-	static const std::string verurls[] = {
-		"http://astronautlevel2.github.io/Luma3DS/latest.zip",
-	};
+	u8* apiReqData = nullptr;
+	u32 apiReqSize = 0;
 
+	logPrintf("Downloading %s...\n", version);
 
-	static const int versionCount = sizeof(versions) / sizeof(versions[0]);
+	httpGet(version, &apiReqData, &apiReqSize, true);
+	logPrintf("Downloaded %lu bytes\n", apiReqSize);
+	gfxFlushBuffers();
+	jsmntok_t t[512] = {};
+	int r = jsmn_parse(&p, (const char*)apiReqData, apiReqSize, t, sizeof(t) / sizeof(t[0]));
+		if (r < 0) {
+			throw formatErrMessage("Failed to parse JSON", r);
+		}
+	logPrintf("JSON parsed successfully!\n");
+	gfxFlushBuffers();
 
-	for (int i = 0; i < versionCount; i++) {
-		u8* apiReqData = nullptr;
-		u32 apiReqSize = 0;
+	bool namefound = false;
+	bool verHasURL = false;
 
-		logPrintf("Downloading %s...\n", versions[i]);
-
-		try {
-			httpGet(versions[i], &apiReqData, &apiReqSize, true);
-		} catch (const std::runtime_error& e) {
-			logPrintf("Could not download, skipping...");
-			continue;
+	for (int i = 0; i < r; i++) 
+	{
+		if (!namefound && jsoneq((const char*)apiReqData, &t[i], "tag_name") == 0) 
+		{
+			jsmntok_t val = t[i+1];
+			hourly.name = std::string((const char*)apiReqData + val.start, val.end - val.start);
+			hourly.name = hourly.name.substr(hourly.name.find_last_of('-') + 1);
+			logPrintf("Hourly found: %s\n", hourly.name.c_str());
+			namefound = true;
 		}
 
-		logPrintf("Downloaded %lu bytes\n", apiReqSize);
-		gfxFlushBuffers();
-
-		std::string hourlyName = std::string((const char*)apiReqData, apiReqSize);
-		trim(hourlyName);
-
-		// Use stable's hourly id as "latest" since it gets updated more often
-		if (i == 0) {
-			hourly.name = hourlyName;
+		if (!verHasURL && jsoneq((const char*)apiReqData, &t[i], "browser_download_url") == 0) {
+			jsmntok_t val = t[i+1];
+			verurl = std::string((const char*)apiReqData + val.start, val.end - val.start);
+			logPrintf("Hourly download Link Found\n");
+			verHasURL = true;
 		}
 
-		/*std::string url = verurls[i] + hourlyName + ".zip";*/
-		std::string url = verurls[i];
-
-		hourly.versions.push_back(ReleaseVer { hourlyName, "latest " + std::string(vertypes[i]) + " (" + hourlyName + ")", std::string(url), 0 });
-		hourly.commits[std::string(vertypes[i])] = hourlyName;
-
-		std::free(apiReqData);
 	}
 
-#endif
+	hourly.versions.push_back(ReleaseVer { hourly.name, "latest " + std::string(vertype) + " (" + hourly.name + ")", verurl, 0 });
+	hourly.commits[std::string(vertype)] = hourly.name;
+	std::free(apiReqData);
 
+#endif
 	return hourly;
 }
 
@@ -232,7 +222,6 @@ bool releaseGetPayload(const PayloadType payloadType, const ReleaseVer& release,
 		logPrintf("Skipping integrity check #2 (no ETag found)\n");
 	}
 
-	logPrintf("\nExtracting payload");
 	gfxFlushBuffers();
 
 	std::string payloadPath;
@@ -249,9 +238,20 @@ bool releaseGetPayload(const PayloadType payloadType, const ReleaseVer& release,
 	}
 
 	try {
-		ZipArchive archive(fileData, fileSize);
-		archive.extractFile(payloadPath, payloadData, payloadSize);
-		offset = 0;
+		if(release.url.find(".firm") != std::string::npos)
+		{
+			logPrintf("Writing hourly\n");
+			*payloadData = (u8 *)malloc(sizeof(u8) * fileSize);
+			memcpy(*payloadData, fileData, fileSize);
+			*payloadSize = fileSize;
+			offset = 0;
+		}
+		else
+		{
+			ZipArchive archive(fileData, fileSize);
+			archive.extractFile(payloadPath, payloadData, payloadSize);
+			offset = 0;
+		}
 	} catch (const std::runtime_error& e) {
 		logPrintf(" [ERR]\nFATAL: %s", e.what());
 		std::free(fileData);
@@ -259,6 +259,6 @@ bool releaseGetPayload(const PayloadType payloadType, const ReleaseVer& release,
 	}
 
 	logPrintf(" [OK]\n");
-	std::free(fileData);
+	if(fileData != nullptr) std::free(fileData);
 	return true;
 }

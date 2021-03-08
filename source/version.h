@@ -7,8 +7,6 @@
 struct LumaVersion {
 	std::string release; // Release number (ie. 6.1.1)
 	std::string commit;  // Commit hash (ie. 59ab44a8)
-	bool        isDev;   // Is developer branch?
-
 	const std::string toString(bool printBranch = true) const;
 	bool isValid() const { return !release.empty(); }
 };

@@ -169,21 +169,6 @@ UpdateResult updaterDoUpdate(LatestUpdaterInfo latest, UpdaterInfo current) {
 	}
 
 	consoleScreen(GFX_TOP);
-	consoleSetProgressData("Checking archive integrity", 0.5);
-	consoleScreen(GFX_BOTTOM);
-
-	if (!info.etag.empty()) {
-		logPrintf("Performing integrity check... ");
-		if (!httpCheckETag(info.etag, archiveData, archiveSize)) {
-			logPrintf(" ERR\nMD5 mismatch between server's and local file!\n");
-			return { false, "DOWNLOAD FAILED" };
-		}
-		logPrintf(" OK\n");
-	} else {
-		logPrintf("Skipping integrity check (no ETag found)\n");
-	}
-
-	consoleScreen(GFX_TOP);
 	consoleSetProgressData("Extracting archive contents", 0.8);
 	consoleScreen(GFX_BOTTOM);
 

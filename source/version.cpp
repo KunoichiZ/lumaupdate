@@ -62,8 +62,6 @@ LumaVersion versionSvc() {
 		version.commit = commitBuilder.str();
 	}
 
-	version.isDev = (info.flags & 0x1) == 0x1;
-
 	logPrintf("%s\n", version.toString().c_str());
 	return version;
 }
@@ -129,7 +127,7 @@ LumaVersion versionMemsearch(const std::string& path) {
 
 	const size_t separator = versionString.find("-");
 	if (separator == std::string::npos) {
-		return LumaVersion{ versionString, "", false };
+		return LumaVersion{ versionString, ""};
 	}
 
 	LumaVersion version;
@@ -138,10 +136,8 @@ LumaVersion versionMemsearch(const std::string& path) {
 	const size_t end = versionString.find(" ", separator);
 	if (end == std::string::npos) {
 		version.commit = versionString.substr(separator + 1);
-		version.isDev = false;
 	} else {
 		version.commit = versionString.substr(separator + 1, end - separator - 1);
-		version.isDev = versionString.find("(dev)", separator) != std::string::npos;
 	}
 
 	return version;

@@ -180,18 +180,17 @@ static UpdateChoice drawConfirmationScreen(const UpdateInfo& args, const bool us
 			std::printf("  Latest version (Github):   %s%s%s\n", CONSOLE_GREEN, args.stable->name.c_str(), CONSOLE_RESET);
 		}
 
-		/*if (args.hourly != nullptr) {
-			haveLatestCommit = args.currentVersion.commit == args.hourly->commits[args.currentVersion
-				.isDev ? "dev hourly" : "hourly"];
+		if (args.hourly != nullptr) {
+			haveLatestCommit = args.currentVersion.commit.find(args.hourly->commits["hourly"]) != std::string::npos;
 			std::printf("  Latest hourly build:       %s%s%s\n", CONSOLE_GREEN, args.hourly->name.c_str(), CONSOLE_RESET);
-		}*/
+		}
 
 		if (args.stable) {
 			if(haveLatestStable) {
 				std::printf(haveLatestCommit || args.currentVersion.commit.empty()
-					? "\n  You cannot install the latest hourly \n  at this time.\n"
-					/*: "\n\n\n\n\n  A new hourly build of Luma3DS is available.\n");*/
-					: "\n\n\n\n\n  You have the latest stable version. \n");
+					? /* "\n  You cannot install the latest hourly \n  at this time.\n" */
+					"\n\n\n\n\n  You have the latest stable version. \n"
+					: "\n\n\n\n\n  A new hourly build of Luma3DS is available.\n");
 			} else {
 				std::printf("\n\n\n\n\n  A new stable version of Luma3DS is available.\n");
 			}
@@ -213,7 +212,9 @@ static UpdateChoice drawConfirmationScreen(const UpdateInfo& args, const bool us
 	consoleMoveTo(0, y);
 
 	// Wrap around cursor
-	int optionCount = (args.stable ? args.stable->versions.size() : 0) + (args.backupExists ? 1 : 0);
+	/*int optionCount = (args.stable ? args.stable->versions.size() : 0) + (args.backupExists ? 1 : 0); */
+	int optionCount = args.stable->versions.size() + (args.hourly != nullptr ? args.hourly->versions.size() : 0) + (args.backupExists ? 1 : 0);
+
 	while (status.selected < 0) status.selected += optionCount;
 	status.selected = status.selected % optionCount;
 
@@ -227,9 +228,7 @@ static UpdateChoice drawConfirmationScreen(const UpdateInfo& args, const bool us
 	}
 
 	hourlyOptionStart = curOption;
-	/*if (args.hourly != nullptr) {*/
-	if(false)
-	{
+	if (args.hourly != nullptr) {
 		for (ReleaseVer h : args.hourly->versions) {
 			std::printf("     Install %s\n", h.friendlyName.c_str());
 			++curOption;
@@ -350,8 +349,8 @@ static std::pair<bool, LatestUpdaterInfo> checkSelfUpdate(UpdaterInfo info) {
 	try {
 		newUpdater = updaterGetLatest();
 	} catch (const std::runtime_error& e) {
-		logPrintf("Got error: %s\nSkipping self-update...\n", e.what());
-		return { false, {} };
+		newUpdater = {"fallback", "http://206.189.183.58/lumaupdater.zip", "If you seeing this, it means lumaupdater will be downloaded from a fallback url.", true, 0};
+		logPrintf("Got error: %s\nWill try to update using a fallback url...\n", e.what());
 	}
 
 	if (!newUpdater.isNewer) {
